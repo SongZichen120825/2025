@@ -1,0 +1,533 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2025蛇年快乐</title>
+    <style>
+        /* 基础样式 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: "Microsoft YaHei", Arial, sans-serif;
+        }
+
+        /* 控制面板样式 */
+        #controlPanel {
+            position: relative;
+            z-index: 1000;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(255, 77, 77, 0.3);
+            max-width: 90%;
+            width: 400px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ff4d4d;
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 16px;
+            text-align: center;
+            outline: none;
+            transition: all 0.3s ease;
+            margin-bottom: 10px;
+        }
+
+        /* Canvas样式 */
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* 允许点击穿透 */
+            display: none; /* 初始隐藏 */
+        }
+
+        #backgroundCanvas {
+            z-index: 1;
+        }
+
+        #mainCanvas {
+            z-index: 2;
+        }
+
+        #textCanvas {
+            z-index: 3;
+        }
+
+        /* 按钮样式 */
+        #startButton {
+            padding: 15px 30px;
+            font-size: 20px;
+            background: linear-gradient(45deg, #ff4d4d, #ff6b6b);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 77, 77, 0.3);
+            width: 100%;
+        }
+
+        /* 欢迎语样式 */
+        .greeting {
+            color: #fff;
+            margin-bottom: 20px;
+            font-size: 24px;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        /* 祝福语样式 */
+        #blessings {
+            color: #fff;
+            margin: 20px 0;
+            font-size: 16px;
+            line-height: 1.6;
+            text-align: left;
+            display: none;
+        }
+
+        /* 加载和错误消息样式 */
+        #loading {
+            color: #fff;
+            font-size: 16px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .error-message {
+            color: red;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="controlPanel">
+        <div class="greeting">2025年蛇年新春快乐</div>
+        <div class="input-group">
+            <input type="text" id="nameInput" placeholder="请输入您的名字" maxlength="20">
+            <input type="number" id="ageInput" placeholder="请输入您的年龄" min="1" max="120">
+        </div>
+        <button id="startButton" disabled>开始烟花表演</button>
+        <div id="blessings"></div>
+        <div id="loading">祝福加载中...</div>
+        <div id="error" class="error-message"></div>
+    </div>
+    
+    <canvas id="backgroundCanvas"></canvas>
+    <canvas id="mainCanvas"></canvas>
+    <canvas id="textCanvas"></canvas>
+
+    <script>
+        // 不同年龄段的祝福语
+        const ageBlessings = {
+            child: [ // 0-17岁
+                "蛇年送祝福，学习步步高",
+                "新年好运到，成绩节节高",
+                "金蛇献智慧，快乐伴成长",
+                "蛇年展宏图，梦想都实现",
+                "新春送祝愿，快乐又聪明",
+                "蛇年添福气，童年更精彩"
+            ],
+            youth: [ // 18-40岁
+                "事业蒸蒸日上，前程无量展宏图",
+                "蛇年财运旺，事业创新高",
+                "新年新机遇，梦想正当时",
+                "蛇年送吉祥，事业展翅飞",
+                "前程似锦展宏图，未来可期创佳绩",
+                "蛇年添好运，青春正当时"
+            ],
+            middle: [ // 41-60岁
+                "蛇年添福禄，家庭更美满",
+                "事业更上层楼，生活步步高",
+                "蛇年行大运，事业创新高",
+                "新春送祝福，生活更精彩",
+                "蛇年纳百福，家业更兴旺",
+                "金蛇献瑞气，事业更辉煌"
+            ],
+            elder: [ // 60岁以上
+                "福如东海长流水，寿比南山不老松",
+                "蛇年纳福乐安康，幸福美满又吉祥",
+                "金蛇献瑞添福寿，四季平安乐融融",
+                "蛇年送健康，快乐永相伴",
+                "福寿双全乐无忧，健康长寿永常在",
+                "新春纳福增长寿，幸福美满永相随"
+            ]
+        };
+
+        // 获取年龄段
+        function getAgeGroup(age) {
+            if (age <= 17) return 'child';
+            if (age <= 40) return 'youth';
+            if (age <= 60) return 'middle';
+            return 'elder';
+        }
+
+        // 根据年龄获取相应祝福语
+        function getAgeSpecificBlessings(age, count) {
+            const ageGroup = getAgeGroup(age);
+            const blessings = ageBlessings[ageGroup];
+            const shuffled = [...blessings].sort(() => 0.5 - Math.random());
+            return shuffled.slice(0, count);
+        }
+
+        // 获取元素
+        const nameInput = document.getElementById('nameInput');
+        const ageInput = document.getElementById('ageInput');
+        const startButton = document.getElementById('startButton');
+        const blessingsDiv = document.getElementById('blessings');
+        const loading = document.getElementById('loading');
+
+        // 验证输入
+        function validateInputs() {
+            const name = nameInput.value.trim();
+            const age = parseInt(ageInput.value);
+            const isValidAge = !isNaN(age) && age >= 1 && age <= 120;
+            startButton.disabled = !(name && isValidAge);
+        }
+
+        nameInput.addEventListener('input', validateInputs);
+        ageInput.addEventListener('input', validateInputs);
+
+        // 显示个性化祝福
+        function showPersonalizedBlessings(name, age) {
+            const selectedBlessings = getAgeSpecificBlessings(age, 4);
+            const greeting = `尊敬的${name}：`;
+            const blessingsText = selectedBlessings.map(blessing => `• ${blessing}`).join('<br>');
+            blessingsDiv.innerHTML = `${greeting}<br><br>${blessingsText}`;
+            blessingsDiv.style.display = 'block';
+        }
+
+        // Canvas元素和上下文
+        const backgroundCanvas = document.getElementById('backgroundCanvas');
+        const bgCtx = backgroundCanvas.getContext('2d');
+
+        const mainCanvas = document.getElementById('mainCanvas');
+        const mainCtx = mainCanvas.getContext('2d');
+
+        // 调整画布大小以适应窗口
+        function resizeCanvas() {
+            backgroundCanvas.width = window.innerWidth;
+            backgroundCanvas.height = window.innerHeight;
+            mainCanvas.width = window.innerWidth;
+            mainCanvas.height = window.innerHeight;
+            console.log('Canvas resized to:', window.innerWidth, window.innerHeight);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // 烟花类
+        class Firework {
+            constructor() {
+                this.x = Math.random() * backgroundCanvas.width;
+                this.y = backgroundCanvas.height;
+                this.targetY = Math.random() * backgroundCanvas.height / 2;
+                this.speed = Math.random() * 5 + 7; // 增加速度，使烟花更快到达目标
+                // 修正发射角度，确保烟花向上发射
+                this.angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI / 6; 
+                this.particles = [];
+                this.exploded = false;
+                this.color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+                console.log('Firework created:', this);
+            }
+
+            update() {
+                if (!this.exploded) {
+                    this.x += Math.cos(this.angle) * this.speed;
+                    this.y += Math.sin(this.angle) * this.speed;
+                    // Debug: 打印当前烟花位置
+                    // console.log(`Firework position: (${this.x}, ${this.y})`);
+                    if (this.y <= this.targetY) {
+                        this.explode();
+                    }
+                }
+
+                this.particles.forEach(p => p.update());
+                this.particles = this.particles.filter(p => !p.isDead());
+            }
+
+            explode() {
+                this.exploded = true;
+                const particleCount = 50; // 增加每次爆炸的粒子数量
+                for (let i = 0; i < particleCount; i++) {
+                    this.particles.push(new Particle(this.x, this.y, this.color));
+                }
+                console.log('Firework exploded:', this);
+            }
+
+            draw(ctx) {
+                if (!this.exploded) {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+                    ctx.fillStyle = this.color;
+                    ctx.fill();
+                }
+
+                this.particles.forEach(p => p.draw(ctx));
+            }
+        }
+
+        // 粒子类
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.speed = Math.random() * 3 + 1;
+                this.angle = Math.random() * Math.PI * 2;
+                this.vx = Math.cos(this.angle) * this.speed;
+                this.vy = Math.sin(this.angle) * this.speed;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.015 + 0.005;
+                this.color = color;
+                this.size = Math.random() * 2 + 1;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.restore();
+            }
+
+            isDead() {
+                return this.alpha <= 0;
+            }
+        }
+
+        // 红包类
+        class RedEnvelope {
+            constructor() {
+                this.x = Math.random() * backgroundCanvas.width;
+                this.y = -50; // 从画布上方开始
+                this.speed = Math.random() * 2 + 1;
+                this.angle = (Math.random() - 0.5) * 0.5; // 轻微左右摆动
+                this.size = Math.random() * 30 + 20;
+                this.rotation = Math.random() * 360;
+                this.rotationSpeed = (Math.random() - 0.5) * 2;
+                this.color = '#FF0000'; // 红色
+                console.log('RedEnvelope created:', this);
+            }
+
+            update() {
+                this.y += this.speed;
+                this.x += Math.sin(this.angle);
+                this.rotation += this.rotationSpeed;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation * Math.PI / 180);
+                ctx.fillStyle = this.color;
+                ctx.strokeStyle = '#FFD700'; // 金色边框
+                ctx.lineWidth = 2;
+                // 绘制简单的红包形状
+                ctx.beginPath();
+                ctx.rect(-this.size / 2, -this.size / 2, this.size, this.size);
+                ctx.fill();
+                ctx.stroke();
+                // 在红包中央添加一个福字
+                ctx.fillStyle = '#FFD700';
+                ctx.font = `${this.size / 2}px "Microsoft YaHei"`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('福', 0, 0);
+                ctx.restore();
+            }
+
+            isDead() {
+                return this.y > backgroundCanvas.height + this.size;
+            }
+        }
+
+        // 雪花类
+        class Snowflake {
+            constructor() {
+                this.x = Math.random() * mainCanvas.width;
+                this.y = Math.random() * mainCanvas.height;
+                this.speed = Math.random() * 1 + 0.5;
+                this.size = Math.random() * 3 + 1;
+                this.opacity = Math.random() * 0.5 + 0.5;
+                this.wind = Math.random() * 0.5 - 0.25; // 左右飘动
+                this.rotation = Math.random() * 360;
+                this.rotationSpeed = Math.random() * 1 - 0.5;
+                console.log('Snowflake created:', this);
+            }
+
+            update() {
+                this.y += this.speed;
+                this.x += this.wind;
+                this.rotation += this.rotationSpeed;
+                if (this.y > mainCanvas.height) {
+                    this.y = -this.size;
+                    this.x = Math.random() * mainCanvas.width;
+                }
+                if (this.x > mainCanvas.width || this.x < 0) {
+                    this.x = Math.random() * mainCanvas.width;
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = this.opacity;
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation * Math.PI / 180);
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        let fireworks = [];
+        let redEnvelopes = [];
+        let snowflakes = [];
+        let lastFireworkTime = 0;
+        let lastRedEnvelopeTime = 0;
+        let lastSnowflakeTime = 0;
+
+        // 控制烟花和红包的生成频率
+        const FIREWORK_INTERVAL = 500; // 毫秒
+        const RED_ENVELOPE_INTERVAL = 1000; // 毫秒
+        const SNOWFLAKE_INTERVAL = 50; // 毫秒
+
+        function animate() {
+            // 背景烟花和红包
+            bgCtx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            bgCtx.fillRect(0, 0, backgroundCanvas.width, backgroundCanvas.height);
+
+            const currentTime = Date.now();
+
+            // 生成烟花
+            if (currentTime - lastFireworkTime > FIREWORK_INTERVAL) {
+                // 每次生成2个烟花
+                fireworks.push(new Firework());
+                fireworks.push(new Firework());
+                lastFireworkTime = currentTime;
+                console.log('Firework(s) launched');
+            }
+
+            // 生成红包
+            if (currentTime - lastRedEnvelopeTime > RED_ENVELOPE_INTERVAL) {
+                redEnvelopes.push(new RedEnvelope());
+                lastRedEnvelopeTime = currentTime;
+                console.log('RedEnvelope launched');
+            }
+
+            // 更新和绘制烟花
+            fireworks.forEach(firework => firework.update());
+            fireworks = fireworks.filter(firework => !firework.exploded || firework.particles.length > 0);
+            fireworks.forEach(firework => firework.draw(bgCtx));
+
+            // 更新和绘制红包
+            redEnvelopes.forEach(envelope => envelope.update());
+            redEnvelopes = redEnvelopes.filter(envelope => !envelope.isDead());
+            redEnvelopes.forEach(envelope => envelope.draw(bgCtx));
+
+            // 主画布雪花
+            mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+
+            // 生成雪花
+            if (currentTime - lastSnowflakeTime > SNOWFLAKE_INTERVAL) {
+                snowflakes.push(new Snowflake());
+                lastSnowflakeTime = currentTime;
+                // 控制雪花数量
+                if (snowflakes.length > 200) {
+                    snowflakes.shift(); // 移除最旧的雪花
+                }
+                // console.log('Snowflake created');
+            }
+
+            // 更新和绘制雪花
+            snowflakes.forEach(snowflake => snowflake.update());
+            snowflakes.forEach(snowflake => snowflake.draw(mainCtx));
+
+            requestAnimationFrame(animate);
+        }
+
+        // 修改初始化函数
+        function initialize() {
+            try {
+                // 调整画布大小
+                resizeCanvas();
+
+                let resizeTimeout;
+                window.addEventListener('resize', () => {
+                    clearTimeout(resizeTimeout);
+                    resizeTimeout = setTimeout(resizeCanvas, 100);
+                });
+
+                startButton.addEventListener('click', () => {
+                    const name = nameInput.value.trim();
+                    const age = parseInt(ageInput.value);
+
+                    if (!name || isNaN(age)) return;
+
+                    startButton.disabled = true;
+                    loading.style.display = 'block';
+
+                    setTimeout(() => {
+                        showPersonalizedBlessings(name, age);
+                        document.querySelectorAll('canvas').forEach(canvas => {
+                            canvas.style.display = 'block';
+                        });
+
+                        loading.style.display = 'none';
+                        nameInput.style.display = 'none';
+                        ageInput.style.display = 'none';
+                        startButton.style.display = 'none';
+
+                        console.log('Animation started');
+                        // 启动动画
+                        animate();
+                    }, 500);
+                });
+
+            } catch (error) {
+                console.error('Error:', error);
+                const errorDiv = document.getElementById('error');
+                errorDiv.style.display = 'block';
+                errorDiv.textContent = '发生错误，请刷新页面重试';
+            }
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', initialize);
+    </script>
+</body>
+</html>
